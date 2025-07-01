@@ -1,0 +1,209 @@
+version: '3.8'
+
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: sea_catering_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sea_catering
+      POSTGRES_USER: seacatering
+      POSTGRES_PASSWORD: seacatering_password_2024
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/seeds:/docker-entrypoint-initdb.d
+    networks:
+      - sea_catering_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seacatering -d sea_catering"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: sea_catering_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sea_catering_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes --requirepass redis_password_2024
+
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sea_catering_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://seacatering:seacatering_password_2024@postgres:5432/sea_catering?sslmode=disable
+    networks:
+      - sea_catering_network
+    volumes:
+      - ./database/migrations:/app/database/migrations
+    entrypoint: ["./tools/migration/main", "-command", "up", "-database", "postgres://seacatering:seacatering_password_2024@postgres:5432/sea_catering?sslmode=disable"]
+
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sea_catering_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    environment:
+
+      APP_NAME: SEA Catering Backend
+      APP_ENV: production
+      APP_PORT: 8080
+
+
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: seacatering
+      DB_PASSWORD: seacatering_password_2024
+      DB_NAME: sea_catering
+      DB_SSLMODE: disable
+      DB_MAX_OPEN_CONNS: 25
+      DB_MAX_IDLE_CONNS: 5
+
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password_2024
+      REDIS_DB: 0
+
+
+      JWT_SECRET: sea_catering_jwt_secret_2024_production_change_this
+      JWT_EXPIRES_IN: 24h
+      JWT_ISSUER: sea-catering-backend
+
+
+      BCRYPT_COST: 12
+
+
+      LOG_LEVEL: info
+      LOG_FORMAT: json
+      LOG_OUTPUT: both
+      LOG_FILE_PATH: ./logs/app.log
+
+
+      CORS_ALLOW_ORIGINS: "*"
+      CORS_ALLOW_METHODS: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+      CORS_ALLOW_HEADERS: "Origin,Content-Type,Accept,Authorization,X-Request-ID"
+      CORS_ALLOW_CREDENTIALS: "true"
+
+
+      MAX_FILE_SIZE: 5242880
+      ALLOWED_FILE_TYPES: "image/jpeg,image/png,image/gif,image/webp"
+
+
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USERNAME: your_email@gmail.com
+      SMTP_PASSWORD: your_app_password
+      SMTP_FROM_NAME: SEA Catering
+      SMTP_FROM_EMAIL: noreply@seacatering.com
+
+
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: your_aws_access_key
+      AWS_SECRET_ACCESS_KEY: your_aws_secret_key
+      AWS_BUCKET_NAME: sea-catering-uploads
+
+
+      MIDTRANS_SERVER_KEY: your_midtrans_server_key
+      MIDTRANS_CLIENT_KEY: your_midtrans_client_key
+      MIDTRANS_IS_PRODUCTION: false
+
+    volumes:
+      - app_logs:/app/logs
+    networks:
+      - sea_catering_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+
+  nginx:
+    image: nginx:alpine
+    container_name: sea_catering_nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - sea_catering_network
+
+
+  adminer:
+    image: adminer:latest
+    container_name: sea_catering_adminer
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    networks:
+      - sea_catering_network
+
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: sea_catering_redis_commander
+    restart: unless-stopped
+    depends_on:
+      - redis
+    ports:
+      - "8082:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:redis_password_2024
+    networks:
+      - sea_catering_network
+
+networks:
+  sea_catering_network:
+    driver: bridge
+    name: sea_catering_network
+
+volumes:
+  postgres_data:
+    name: sea_catering_postgres_data
+  redis_data:
+    name: sea_catering_redis_data
+  app_logs:
+    name: sea_catering_app_logs

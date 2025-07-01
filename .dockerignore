@@ -1,0 +1,114 @@
+# .dockerignore
+# Ignore files and directories that shouldn't be included in Docker image
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker files
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Environment files
+.env*
+!.env.example
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs and temp files
+*.log
+logs/
+tmp/
+temp/
+
+# Dependencies and build artifacts
+node_modules/
+vendor/
+*.o
+*.a
+*.so
+
+# Test files and coverage
+*_test.go
+*.test
+*.out
+coverage.html
+.coverage/
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Scripts (except necessary ones)
+scripts/
+!scripts/migration/
+
+# Data directories
+data/
+backup/
+backups/
+
+# SSL certificates and keys
+*.pem
+*.key
+*.crt
+*.csr
+ssl/
+
+# Local development files
+.air.toml
+air_tmp/
+
+# Compiled binaries
+main
+sea-catering-backend
+*.exe
+
+# Go module cache
+go.sum.bak
+
+# IDE specific
+.vscode/settings.json
+.idea/workspace.xml
+
+# Local configuration
+config/local.yaml
+config/local.json
+
+# Temporary files
+*.tmp
+*.temp
+
+# Nginx logs
+nginx/logs/
+
+# Database dumps
+*.sql
+*.dump
+
+# Redis dumps
+*.rdb
+
+# Backup files
+backup_*
+
+# Local overrides
+docker-compose.override.yml
+docker-compose.local.yml
